@@ -10,8 +10,6 @@ import com.intellij.openapi.editor.markup.HighlighterLayer;
 import com.intellij.openapi.editor.markup.MarkupModel;
 import com.intellij.openapi.editor.markup.RangeHighlighter;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
-import com.intellij.openapi.progress.ProgressIndicator;
-import com.intellij.openapi.progress.ProgressManager;
 import com.intellij.openapi.progress.Task;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.MessageType;
@@ -24,125 +22,74 @@ import com.intellij.openapi.wm.StatusBar;
 import com.intellij.openapi.wm.WindowManager;
 import com.intellij.ui.awt.RelativePoint;
 
-import org.jetbrains.annotations.NotNull;
+import org.apache.xmlrpc.XmlRpcRequest;
+import org.apache.xmlrpc.client.AsyncCallback;
+import org.apache.xmlrpc.client.XmlRpcClient;
+import org.apache.xmlrpc.client.XmlRpcClientConfigImpl;
 import org.pairprogrammingai.apireciper.core.main.AdviserLucene;
 
 import java.awt.*;
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
 import java.net.URL;
 
 public class RecipeAnAction extends AnAction {
-    /* Defines */
-    /*
-    private static final String androidSdkPath = "/Users/nishimoto/Documents/Tools/android-sdk-macosx/";
-    private static final String androidSdkVersion = "25";
-    private static final String luceneIndexPath = "/Users/nishimoto/Desktop/newIndex_type4";
-    */
-
     private Editor editor;
     private Project project;
     private Task.Backgroundable task;
-    private boolean isActiveIndicator;
 
     private final ApiRecipePreferenceConfig config = ApiRecipePreferenceConfig.getInstance();
 
     @Override
     public void actionPerformed(AnActionEvent e) {
         project = e.getData(PlatformDataKeys.PROJECT);
-
+        editor = e.getData(CommonDataKeys.EDITOR);
         if(!config.isUseful()){
             showMessage("Android SDKのパス，もしくはバージョン，Indexのパスが正しく設定されているかをPreferenceで確認してください");
             return ;
         }
 
-        editor = e.getData(CommonDataKeys.EDITOR);
         Document document = editor.getDocument();
         MarkupModel markup = editor.getMarkupModel();
         EditorGutter gutter = editor.getGutter();
         VirtualFile virtualFile = FileDocumentManager.getInstance().getFile(document);
         String txt = Messages.showInputDialog(project, "Input your keywords", "ApiReciper", Messages.getQuestionIcon());
 
-        if(txt != null){
-            //ファイルの文字列の情報が中に入っている
-            String contents = null;
-            /*
-            try {
-                BufferedReader br = new BufferedReader(new FileReader(virtualFile.getPath()));
-                String currentLine;
-                StringBuilder stringBuilder = new StringBuilder();
-                while ((currentLine = br.readLine()) != null) {
-                    stringBuilder.append(currentLine);
-                    stringBuilder.append("\n");
-                }
-                contents = stringBuilder.toString();
-            } catch (IOException e1) {
-                return;
-            }
-            */
-            contents = virtualFile.getPath();
-            if((contents != null) && (!contents.isEmpty()) && (!txt.isEmpty())){
-                markup.removeAllHighlighters();
-                send(contents, txt);
 
-                isActiveIndicator = true;
-/*
-                task = new Task.Backgroundable(project, "Searching..."){
-
-                    public void run(@NotNull ProgressIndicator progressIndicator) {
-                        int i = 1;
-                        while (isActiveIndicator) {
-                            progressIndicator.setFraction(0.10 * i);
-                            progressIndicator.setText((10 * i) + "%");
-                            try {
-                                Thread.sleep(1000);
-                            } catch (Exception e1) {
-                            }
-                            if(i <= 8) {
-                                i++;
-                            }
-                        }
-
-                        progressIndicator.setFraction(1.0);
-                        progressIndicator.setText("100%");
-                        try {
-                            Thread.sleep(1000);
-                        } catch (Exception e1) {
-                        }
-                    }
-                };
-                ProgressManager.getInstance().run(task);
-*/
-            }
+        String contents = virtualFile.getPath();
+        if((contents != null) && (!contents.isEmpty()) && (!txt.isEmpty())){
+            markup.removeAllHighlighters();
+            send(contents, txt);
         }
-        System.out.println("End");
     }
 
     private void send(String sourceName, String keyword){
         AdviserLucene adviserLucene = new AdviserLucene(config.getAndroidSdkPath() + "/", config.getAndroidSdkVersion(), config.getIndexPath());
         adviserLucene.execute(sourceName, keyword, false);
         String result = adviserLucene.getAdvisetoString();
+
+        String message = "";
         if(!result.equals("")){
             // success
             System.out.println(result);
 
-            isActiveIndicator = false;
             String[] s = result.split("###");
-
             if(s.length > 0){
                 for(int i = 0; i < s.length; i++){
                     String[] data = s[i].split("@@@");
                     showAdviseMessage(data, i);
                 }
-                showMessage("Search Finished: Advise " + s.length);
+                message = "ApiReciper：「" + keyword + "」の検索完了です．アドバイスは" + s.length + "件です";
             } else {
-                showMessage("Search Finished: No Advise");
+                message = "ApiReciper：「" + keyword + "」の検索完了です．アドバイスはありません";
             }
         } else {
             // fail
-            isActiveIndicator = false;
-            showMessage("Sorry! Failed Searching");
+            message = "ApiReciper：「" + keyword + "」の検索完了です．アドバイスはありません";
+        }
+
+        if(ApiRecipePreferenceConfig.getInstance().getIsSupportPPAI()) {
+            notifyPairProgrammingAI(message);
+        } else {
+            showMessage(message);
         }
     }
 
@@ -179,5 +126,38 @@ public class RecipeAnAction extends AnAction {
             }
         };
         WriteCommandAction.runWriteCommandAction(project, readRunner);
+    }
+
+    private void notifyPairProgrammingAI(String data){
+        try{
+            String pName = "ReceiveMessageServer";
+            String pIpAddr = "127.0.0.1";
+            String pPort = "5678";
+
+            XmlRpcClientConfigImpl config = new XmlRpcClientConfigImpl();
+            System.out.println("http://"+ pIpAddr +":"+ pPort +"/xmlrpc");
+
+            config.setServerURL(new URL("http://"+ pIpAddr +":"+ pPort +"/xmlrpc"));
+
+            XmlRpcClient client = new XmlRpcClient();
+            client.setConfig(config);
+
+            Object[] params = new Object[]{new String(data)};
+            client.executeAsync(pName + "." + "setMessage", params, new AsyncCallback() {
+
+                @Override
+                public void handleResult(XmlRpcRequest pRequest, Object pResult) {
+                    System.out.println((String) pResult);
+                }
+
+                @Override
+                public void handleError(XmlRpcRequest pRequest, Throwable pError) {
+                    System.out.println("handleError " + pError.getMessage());
+                    showMessage(data);
+                }
+            });
+        }catch(Exception e){
+            e.printStackTrace();
+        }
     }
 }

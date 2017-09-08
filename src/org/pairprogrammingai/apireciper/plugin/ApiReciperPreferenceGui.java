@@ -1,13 +1,10 @@
 package org.pairprogrammingai.apireciper.plugin;
 
-import com.intellij.openapi.project.Project;
-
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
-import org.jetbrains.annotations.NotNull;
 
 public class ApiReciperPreferenceGui extends Frame implements ActionListener{
     private JPanel panel1;
@@ -16,6 +13,7 @@ public class ApiReciperPreferenceGui extends Frame implements ActionListener{
     private JButton selectButton;
     private JButton selectButton1;
     private JTextField textField3;
+    private JCheckBox checkBox1;
 
     public JPanel getRootPanel() {
         return panel1;
@@ -26,6 +24,7 @@ public class ApiReciperPreferenceGui extends Frame implements ActionListener{
 
         selectButton.addActionListener(this);
         selectButton1.addActionListener(this);
+        checkBox1.addActionListener(this);
     }
 
     @Override
@@ -34,6 +33,12 @@ public class ApiReciperPreferenceGui extends Frame implements ActionListener{
             selectFolderAction(textField1);
         } else if(e.getSource().equals(selectButton1)){
             selectFolderAction(textField2);
+        } else if(e.getSource().equals(checkBox1)){
+            if(checkBox1.isSelected()){
+                checkBox1.setText("Enable");
+            } else {
+                checkBox1.setText("Disable");
+            }
         }
     }
 
@@ -52,17 +57,25 @@ public class ApiReciperPreferenceGui extends Frame implements ActionListener{
         config.setAndroidSdkPath(textField1.getText());
         config.setIndexPath(textField2.getText());
         config.setAndroidSdkVersion(textField3.getText());
+        config.setIsSupportPPAI(checkBox1.isSelected());
     }
 
     public void reset(ApiRecipePreferenceConfig config){
         textField1.setText(config.getAndroidSdkPath());
         textField2.setText(config.getIndexPath());
         textField3.setText(config.getAndroidSdkVersion());
+        checkBox1.setSelected(config.getIsSupportPPAI());
+        if(checkBox1.isSelected()){
+            checkBox1.setText("Enable");
+        } else {
+            checkBox1.setText("Disable");
+        }
     }
 
     public boolean isModified(ApiRecipePreferenceConfig config){
         return !(config.getAndroidSdkPath().equals(textField1.getText())
                 && config.getIndexPath().equals(textField2.getText())
-                && config.getAndroidSdkVersion().equals(textField3.getText()));
+                && config.getAndroidSdkVersion().equals(textField3.getText())
+                && config.getIsSupportPPAI() == checkBox1.isSelected());
     }
 }

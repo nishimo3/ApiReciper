@@ -4,7 +4,6 @@ import com.intellij.openapi.components.PersistentStateComponent;
 import com.intellij.openapi.components.ServiceManager;
 import com.intellij.openapi.components.State;
 import com.intellij.openapi.components.Storage;
-import com.intellij.openapi.project.Project;
 import com.intellij.util.xmlb.XmlSerializerUtil;
 import org.jetbrains.annotations.Nullable;
 
@@ -17,6 +16,7 @@ public class ApiRecipePreferenceConfig implements PersistentStateComponent<ApiRe
     private String androidSdkPath = "";
     private String indexPath = "";
     private String androidSdkVersion = "";
+    private boolean isSupportPPAI = false;
 
     public String getAndroidSdkPath() {
         return androidSdkPath;
@@ -27,6 +27,9 @@ public class ApiRecipePreferenceConfig implements PersistentStateComponent<ApiRe
     public String getAndroidSdkVersion() {
         return androidSdkVersion;
     }
+    public boolean getIsSupportPPAI(){
+        return isSupportPPAI;
+    }
 
     public void setAndroidSdkPath(String androidSdkPath) {
         this.androidSdkPath = androidSdkPath;
@@ -36,6 +39,9 @@ public class ApiRecipePreferenceConfig implements PersistentStateComponent<ApiRe
     }
     public void setAndroidSdkVersion(String androidSdkVersion) {
         this.androidSdkVersion = androidSdkVersion;
+    }
+    public void setIsSupportPPAI(boolean isSupportPPAI){
+        this.isSupportPPAI = isSupportPPAI;
     }
 
     @Nullable
